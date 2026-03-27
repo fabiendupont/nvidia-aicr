@@ -642,10 +642,31 @@ func TestLeafRecipesHaveCompleteCriteria(t *testing.T) {
 // Criteria Uniqueness Tests
 // ============================================================================
 
-// TestNoDuplicateCriteriaAcrossOverlays ensures no two overlays have
+// TestNoDuplicateCriteriaAcrossOverlays ensures no two leaf overlays have
 // identical criteria, which would cause non-deterministic matching.
+// Intermediate overlays (referenced as base by others) are skipped since
+// they are not matched directly — they participate via inheritance chains
+// and are differentiated by constraints at runtime.
 func TestNoDuplicateCriteriaAcrossOverlays(t *testing.T) {
 	files := collectMetadataFiles(t)
+
+	// Build set of recipes that are referenced as base by other recipes
+	referencedAsBases := make(map[string]bool)
+	for _, path := range files {
+		content, err := GetEmbeddedFS().ReadFile(path)
+		if err != nil {
+			t.Fatalf("failed to read %s: %v", path, err)
+		}
+
+		var metadata RecipeMetadata
+		if err := yaml.Unmarshal(content, &metadata); err != nil {
+			t.Fatalf("failed to parse %s: %v", path, err)
+		}
+
+		if metadata.Spec.Base != "" {
+			referencedAsBases[metadata.Spec.Base] = true
+		}
+	}
 
 	// Map criteria string to file name
 	criteriaMap := make(map[string]string)
@@ -665,6 +686,13 @@ func TestNoDuplicateCriteriaAcrossOverlays(t *testing.T) {
 		var metadata RecipeMetadata
 		if err := yaml.Unmarshal(content, &metadata); err != nil {
 			t.Fatalf("failed to parse %s: %v", path, err)
+		}
+
+		// Skip intermediate recipes (referenced as base by others) —
+		// they share criteria with children and are differentiated by
+		// constraints, not criteria
+		if referencedAsBases[metadata.Metadata.Name] {
+			continue
 		}
 
 		// Create criteria key

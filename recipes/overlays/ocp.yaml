@@ -1,0 +1,102 @@
+# Copyright (c) 2026, NVIDIA CORPORATION.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+kind: RecipeMetadata
+apiVersion: aicr.nvidia.com/v1alpha1
+metadata:
+  name: ocp
+
+spec:
+  # Inherits from base (implicit when spec.base is empty)
+  # This recipe contains OCP-specific settings shared by all OpenShift deployments
+
+  criteria:
+    service: ocp
+
+  # OCP-specific constraints
+  # Constraint names use fully qualified measurement paths: {type}.{subtype}.{key}
+  constraints:
+    # OCP 4.18 ships K8s 1.31
+    - name: K8s.server.version
+      value: ">= 1.31"
+    - name: OS.release.ID
+      value: rhcos
+
+  componentRefs:
+    # NFD is installed separately on OCP via OLM (Red Hat's NFD operator).
+    # The GPU Operator's built-in NFD sub-chart is disabled to avoid conflicts.
+    - name: nfd
+      type: OLM
+
+    # GPU Operator installed via OLM (gpu-operator-certified from OperatorHub).
+    # Configured via ClusterPolicy CR, not Helm values.
+    # NFD sub-chart disabled — NFD is installed as a standalone OLM operator above.
+    - name: gpu-operator
+      type: OLM
+      dependencyRefs:
+        - nfd
+
+    # Network Operator installed via OLM (nvidia-network-operator from OperatorHub).
+    # Configured via NicClusterPolicy CR, not Helm values.
+    - name: network-operator
+      type: OLM
+
+    # Use OCP's built-in cluster-monitoring Prometheus instead of kube-prometheus-stack
+    - name: k8s-ephemeral-storage-metrics
+      type: Helm
+      valuesFile: components/k8s-ephemeral-storage-metrics/values-ocp.yaml
+      dependencyRefs: []
+
+    # OCP's service-ca-operator handles certificates — disable cert-manager
+    - name: cert-manager
+      type: Helm
+      overrides:
+        enabled: false
+
+    # OCP ships built-in monitoring — disable kube-prometheus-stack
+    - name: kube-prometheus-stack
+      type: Helm
+      overrides:
+        enabled: false
+
+    # kai-scheduler not tested on OCP — OCP uses Kueue via OpenShift AI
+    - name: kai-scheduler
+      type: Helm
+      overrides:
+        enabled: false
+
+    # Skyhook tuning packages target Ubuntu/COS — OCP uses the Node Tuning
+    # Operator (Tuned CRs) for equivalent kernel/sysctl/hugepage optimization
+    - name: skyhook-operator
+      type: Helm
+      overrides:
+        enabled: false
+
+    # NVSentinel on OCP: remove cert-manager dependency since OCP's
+    # service-ca-operator handles webhook certs. The enabled NVSentinel
+    # subcharts (labeler, gpu-health-monitor) do not use webhooks.
+    # See: https://github.com/NVIDIA/NVSentinel/pull/1077
+    - name: nvsentinel
+      type: Helm
+      dependencyRefs:
+        - gpu-operator
+
+  validation:
+    conformance:
+      checks:
+        - platform-health
+        - gpu-operator-health
+        - dra-support
+        - accelerator-metrics
+        - ai-service-metrics

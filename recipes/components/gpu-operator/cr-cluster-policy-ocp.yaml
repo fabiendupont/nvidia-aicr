@@ -1,0 +1,46 @@
+# Copyright (c) 2026, NVIDIA CORPORATION.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# ClusterPolicy CR spec for OCP — base values
+# Training/inference overlays extend via GPU-specific CR spec files
+
+operator:
+  defaultRuntime: crio
+driver:
+  enabled: true
+  usePrecompiled: true
+  version: "570.86.15"
+  rdma:
+    enabled: true
+    useHostMofed: false
+cdi:
+  enabled: true
+  default: true
+dcgmExporter:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+devicePlugin:
+  enabled: false
+toolkit:
+  enabled: true
+  installDir: /usr/local/nvidia
+gdrcopy:
+  enabled: true
+# NFD is installed as a standalone OLM operator on OCP (Red Hat's nfd operator).
+# Disable the GPU Operator's built-in NFD sub-chart to avoid conflicts.
+nfd:
+  enabled: false
+sandboxWorkloads:
+  enabled: false

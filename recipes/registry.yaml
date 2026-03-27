@@ -406,6 +406,18 @@ components:
         tolerationPaths:
           - tolerations
 
+  - name: nfd
+    displayName: Node Feature Discovery
+    valueOverrideKeys:
+      - nodefeaturediscovery
+    olm:
+      package: nfd
+      channel: stable
+      source: redhat-operators
+      sourceNamespace: openshift-marketplace
+      defaultNamespace: openshift-nfd
+      approvalPolicy: Automatic
+
   - name: openshift-ai
     displayName: Red Hat OpenShift AI
     valueOverrideKeys:
