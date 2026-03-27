@@ -442,5 +442,8 @@ func (c *ComponentConfig) GetType() ComponentType {
 	if c.Kustomize.DefaultSource != "" {
 		return ComponentTypeKustomize
 	}
+	if c.OLM != nil && c.OLM.Package != "" && c.Helm.DefaultRepository == "" {
+		return ComponentTypeOLM
+	}
 	return ComponentTypeHelm
 }

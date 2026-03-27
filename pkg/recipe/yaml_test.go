@@ -847,6 +847,7 @@ func TestAllComponentTypesValid(t *testing.T) {
 	validTypes := map[ComponentType]bool{
 		ComponentTypeHelm:      true,
 		ComponentTypeKustomize: true,
+		ComponentTypeOLM:       true,
 	}
 
 	for _, path := range files {
@@ -867,7 +868,7 @@ func TestAllComponentTypesValid(t *testing.T) {
 					continue
 				}
 				if !validTypes[comp.Type] {
-					t.Errorf("componentRef %q has invalid type %q; valid types: Helm, Kustomize",
+					t.Errorf("componentRef %q has invalid type %q; valid types: Helm, Kustomize, OLM",
 						comp.Name, comp.Type)
 				}
 			}
