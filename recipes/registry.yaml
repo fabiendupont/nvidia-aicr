@@ -49,6 +49,18 @@ components:
       defaultRepository: https://helm.ngc.nvidia.com/nvidia
       defaultChart: nvidia/gpu-operator
       defaultNamespace: gpu-operator
+    olm:
+      package: gpu-operator-certified
+      channel: v26.3
+      source: certified-operators
+      sourceNamespace: openshift-marketplace
+      defaultNamespace: nvidia-gpu-operator
+      approvalPolicy: Manual
+      customResources:
+        - apiVersion: nvidia.com/v1
+          kind: ClusterPolicy
+          name: gpu-cluster-policy
+          specFile: cr-cluster-policy-ocp.yaml
     nodeScheduling:
       system:
         nodeSelectorPaths:
@@ -82,6 +94,18 @@ components:
       defaultRepository: https://helm.ngc.nvidia.com/nvidia
       defaultChart: nvidia/network-operator
       defaultNamespace: nvidia-network-operator
+    olm:
+      package: nvidia-network-operator
+      channel: v26.1
+      source: certified-operators
+      sourceNamespace: openshift-marketplace
+      defaultNamespace: nvidia-network-operator
+      approvalPolicy: Manual
+      customResources:
+        - apiVersion: mellanox.com/v1alpha1
+          kind: NicClusterPolicy
+          name: nic-cluster-policy
+          specFile: cr-nic-cluster-policy-ocp.yaml
     nodeScheduling:
       system:
         nodeSelectorPaths:
