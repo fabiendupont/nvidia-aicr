@@ -37,6 +37,9 @@ func TestParseCriteriaServiceType(t *testing.T) {
 		{"gke", "gke", CriteriaServiceGKE, false},
 		{"aks", "aks", CriteriaServiceAKS, false},
 		{"oke", "oke", CriteriaServiceOKE, false},
+		{"ocp", "ocp", CriteriaServiceOCP, false},
+		{"OCP uppercase", "OCP", CriteriaServiceOCP, false},
+		{"openshift alias", "openshift", CriteriaServiceOCP, false},
 		{"self-managed", "self-managed", CriteriaServiceAny, false},
 		{"self", "self", CriteriaServiceAny, false},
 		{"vanilla", "vanilla", CriteriaServiceAny, false},
@@ -663,7 +666,7 @@ func TestGetCriteriaServiceTypes(t *testing.T) {
 	types := GetCriteriaServiceTypes()
 
 	// Should return sorted list
-	expected := []string{"aks", "eks", "gke", "kind", "oke"}
+	expected := []string{"aks", "eks", "gke", "kind", "ocp", "oke"}
 	if len(types) != len(expected) {
 		t.Errorf("GetCriteriaServiceTypes() returned %d types, want %d", len(types), len(expected))
 	}
@@ -735,7 +738,7 @@ func TestGetCriteriaOSTypes(t *testing.T) {
 	types := GetCriteriaOSTypes()
 
 	// Should return sorted list
-	expected := []string{"amazonlinux", "cos", "rhel", "ubuntu"}
+	expected := []string{"amazonlinux", "cos", "rhcos", "rhel", "ubuntu"}
 	if len(types) != len(expected) {
 		t.Errorf("GetCriteriaOSTypes() returned %d types, want %d", len(types), len(expected))
 	}
@@ -821,6 +824,7 @@ func TestParseCriteriaOSType_AllAliases(t *testing.T) {
 		{"ubuntu", "ubuntu", CriteriaOSUbuntu},
 		{"rhel", "rhel", CriteriaOSRHEL},
 		{"cos", "cos", CriteriaOSCOS},
+		{"rhcos", "rhcos", CriteriaOSRHCOS},
 	}
 
 	for _, tt := range tests {

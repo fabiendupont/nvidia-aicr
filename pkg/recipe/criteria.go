@@ -42,6 +42,7 @@ const (
 	CriteriaServiceGKE  CriteriaServiceType = "gke"
 	CriteriaServiceAKS  CriteriaServiceType = "aks"
 	CriteriaServiceOKE  CriteriaServiceType = "oke"
+	CriteriaServiceOCP  CriteriaServiceType = "ocp"
 	CriteriaServiceKind CriteriaServiceType = "kind"
 )
 
@@ -58,6 +59,8 @@ func ParseCriteriaServiceType(s string) (CriteriaServiceType, error) {
 		return CriteriaServiceAKS, nil
 	case "oke":
 		return CriteriaServiceOKE, nil
+	case "ocp", "openshift":
+		return CriteriaServiceOCP, nil
 	case "kind":
 		return CriteriaServiceKind, nil
 	default:
@@ -67,7 +70,7 @@ func ParseCriteriaServiceType(s string) (CriteriaServiceType, error) {
 
 // GetCriteriaServiceTypes returns all supported service types sorted alphabetically.
 func GetCriteriaServiceTypes() []string {
-	return []string{"aks", "eks", "gke", "kind", "oke"}
+	return []string{"aks", "eks", "gke", "kind", "ocp", "oke"}
 }
 
 // CriteriaAcceleratorType represents the GPU/accelerator type.
@@ -145,6 +148,7 @@ const (
 	CriteriaOSAny         CriteriaOSType = "any"
 	CriteriaOSUbuntu      CriteriaOSType = "ubuntu"
 	CriteriaOSRHEL        CriteriaOSType = "rhel"
+	CriteriaOSRHCOS       CriteriaOSType = "rhcos"
 	CriteriaOSCOS         CriteriaOSType = "cos"
 	CriteriaOSAmazonLinux CriteriaOSType = "amazonlinux"
 )
@@ -158,6 +162,8 @@ func ParseCriteriaOSType(s string) (CriteriaOSType, error) {
 		return CriteriaOSUbuntu, nil
 	case "rhel":
 		return CriteriaOSRHEL, nil
+	case "rhcos":
+		return CriteriaOSRHCOS, nil
 	case "cos":
 		return CriteriaOSCOS, nil
 	case "amazonlinux", "al2", "al2023":
@@ -169,7 +175,7 @@ func ParseCriteriaOSType(s string) (CriteriaOSType, error) {
 
 // GetCriteriaOSTypes returns all supported OS types sorted alphabetically.
 func GetCriteriaOSTypes() []string {
-	return []string{"amazonlinux", "cos", "rhel", "ubuntu"}
+	return []string{"amazonlinux", "cos", "rhcos", "rhel", "ubuntu"}
 }
 
 // CriteriaPlatformType represents a platform/framework type.
