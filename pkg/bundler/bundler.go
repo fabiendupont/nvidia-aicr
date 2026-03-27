@@ -252,11 +252,15 @@ func (b *DefaultBundler) Make(ctx context.Context, input recipe.RecipeInput, dir
 	}
 
 	// Route based on deployer
-	deployer := b.Config.Deployer()
-	if deployer == config.DeployerArgoCD {
+	switch b.Config.Deployer() {
+	case config.DeployerArgoCD:
 		return b.makeArgoCD(ctx, recipeResult, componentValues, dir, start)
+	case config.DeployerOLM:
+		return nil, errors.New(errors.ErrCodeInvalidRequest,
+			"OLM deployer is not yet implemented")
+	default:
+		return b.makeHelmBundle(ctx, recipeResult, componentValues, dir, start)
 	}
-	return b.makeHelmBundle(ctx, recipeResult, componentValues, dir, start)
 }
 
 // makeHelmBundle generates a Helm per-component bundle.

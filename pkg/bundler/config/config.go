@@ -32,6 +32,8 @@ const (
 	DeployerHelm DeployerType = "helm"
 	// DeployerArgoCD generates ArgoCD App of Apps manifests.
 	DeployerArgoCD DeployerType = "argocd"
+	// DeployerOLM generates OLM Subscription and Custom Resource manifests.
+	DeployerOLM DeployerType = "olm"
 )
 
 // ParseDeployerType parses a string into a DeployerType.
@@ -42,6 +44,8 @@ func ParseDeployerType(s string) (DeployerType, error) {
 		return DeployerHelm, nil
 	case string(DeployerArgoCD):
 		return DeployerArgoCD, nil
+	case string(DeployerOLM):
+		return DeployerOLM, nil
 	default:
 		return "", errors.New(errors.ErrCodeInvalidRequest, fmt.Sprintf("invalid deployer type %q: must be one of %v", s, GetDeployerTypes()))
 	}
@@ -53,6 +57,7 @@ func GetDeployerTypes() []string {
 	types := []string{
 		string(DeployerHelm),
 		string(DeployerArgoCD),
+		string(DeployerOLM),
 	}
 	sort.Strings(types)
 	return types
