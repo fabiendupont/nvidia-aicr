@@ -53,6 +53,10 @@ type ComponentConfig struct {
 	// Kustomize contains default Kustomize settings.
 	Kustomize KustomizeConfig `yaml:"kustomize,omitempty"`
 
+	// OLM contains default OLM (Operator Lifecycle Manager) settings.
+	// Used for OpenShift deployments where operators are installed via OLM.
+	OLM *OLMConfig `yaml:"olm,omitempty"`
+
 	// NodeScheduling defines paths for injecting node selectors and tolerations.
 	NodeScheduling NodeSchedulingConfig `yaml:"nodeScheduling,omitempty"`
 
@@ -98,6 +102,59 @@ type KustomizeConfig struct {
 
 	// DefaultTag is the default Git tag, branch, or commit.
 	DefaultTag string `yaml:"defaultTag,omitempty"`
+}
+
+// OLMConfig contains default OLM settings for a component.
+// Used on OpenShift where operators are installed via Operator Lifecycle Manager.
+type OLMConfig struct {
+	// Package is the OLM package name (e.g., "gpu-operator-certified").
+	Package string `yaml:"package"`
+
+	// Channel is the OLM subscription channel (e.g., "v25.10", "stable").
+	Channel string `yaml:"channel"`
+
+	// Source is the CatalogSource name (e.g., "certified-operators", "redhat-operators").
+	Source string `yaml:"source"`
+
+	// SourceNamespace is the CatalogSource namespace (e.g., "openshift-marketplace").
+	SourceNamespace string `yaml:"sourceNamespace"`
+
+	// DefaultNamespace is the namespace to install the operator into.
+	DefaultNamespace string `yaml:"defaultNamespace"`
+
+	// ApprovalPolicy is the install plan approval policy ("Manual" or "Automatic").
+	ApprovalPolicy string `yaml:"approvalPolicy"`
+
+	// StartingCSV pins to a specific ClusterServiceVersion (optional).
+	StartingCSV string `yaml:"startingCSV,omitempty"`
+
+	// CustomResources defines post-install CRs to create after the operator is ready.
+	CustomResources []OLMCustomResourceConfig `yaml:"customResources,omitempty"`
+
+	// Skip indicates this component should be skipped on OLM deployments.
+	// Used when OCP provides equivalent built-in functionality (e.g., monitoring).
+	Skip bool `yaml:"skip,omitempty"`
+
+	// Note provides context when a component is skipped.
+	Note string `yaml:"note,omitempty"`
+}
+
+// OLMCustomResourceConfig defines a post-install Custom Resource.
+type OLMCustomResourceConfig struct {
+	// APIVersion is the CR API version (e.g., "nvidia.com/v1").
+	APIVersion string `yaml:"apiVersion"`
+
+	// Kind is the CR kind (e.g., "ClusterPolicy").
+	Kind string `yaml:"kind"`
+
+	// Name is the CR metadata.name.
+	Name string `yaml:"name"`
+
+	// Namespace is the CR namespace (empty for cluster-scoped resources).
+	Namespace string `yaml:"namespace,omitempty"`
+
+	// SpecFile is the path to the CR spec YAML file (relative to component data directory).
+	SpecFile string `yaml:"specFile,omitempty"`
 }
 
 // NodeSchedulingConfig defines paths for node scheduling injection.
