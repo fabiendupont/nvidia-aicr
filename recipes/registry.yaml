@@ -406,6 +406,19 @@ components:
         tolerationPaths:
           - tolerations
 
+  - name: openshift-ai
+    displayName: Red Hat OpenShift AI
+    valueOverrideKeys:
+      - openshiftai
+      - rhoai
+    olm:
+      package: rhods-operator
+      channel: stable
+      source: redhat-operators
+      sourceNamespace: openshift-marketplace
+      defaultNamespace: redhat-ods-operator
+      approvalPolicy: Manual
+
   - name: kubeflow-trainer
     displayName: kubeflow-trainer
     valueOverrideKeys:
