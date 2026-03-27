@@ -83,12 +83,11 @@ spec:
       overrides:
         enabled: false
 
-    # NVSentinel on OCP: remove cert-manager dependency since OCP's
-    # service-ca-operator handles webhook certs. The enabled NVSentinel
-    # subcharts (labeler, gpu-health-monitor) do not use webhooks.
+    # NVSentinel on OCP: use service-ca for webhook TLS instead of cert-manager.
     # See: https://github.com/NVIDIA/NVSentinel/pull/1077
     - name: nvsentinel
       type: Helm
+      valuesFile: components/nvsentinel/values-ocp.yaml
       dependencyRefs:
         - gpu-operator
 
