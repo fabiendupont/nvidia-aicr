@@ -17,6 +17,7 @@ package collector
 import (
 	"github.com/NVIDIA/aicr/pkg/collector/gpu"
 	"github.com/NVIDIA/aicr/pkg/collector/k8s"
+	"github.com/NVIDIA/aicr/pkg/collector/olm"
 	"github.com/NVIDIA/aicr/pkg/collector/os"
 	"github.com/NVIDIA/aicr/pkg/collector/systemd"
 	"github.com/NVIDIA/aicr/pkg/collector/topology"
@@ -31,6 +32,7 @@ type Factory interface {
 	CreateKubernetesCollector() Collector
 	CreateGPUCollector() Collector
 	CreateNodeTopologyCollector() Collector
+	CreateOLMCollector() Collector
 }
 
 // Option defines a configuration option for DefaultFactory.
@@ -106,4 +108,10 @@ func (f *DefaultFactory) CreateNodeTopologyCollector() Collector {
 	return &topology.Collector{
 		MaxNodesPerEntry: f.MaxNodesPerEntry,
 	}
+}
+
+// CreateOLMCollector creates an OLM collector that detects operators installed
+// via Operator Lifecycle Manager. Returns empty data on non-OLM clusters.
+func (f *DefaultFactory) CreateOLMCollector() Collector {
+	return &olm.Collector{}
 }

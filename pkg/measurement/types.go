@@ -77,6 +77,7 @@ const (
 	TypeOS           Type = "OS"
 	TypeSystemD      Type = "SystemD"
 	TypeNodeTopology Type = "NodeTopology"
+	TypeOLM          Type = "OLM"
 )
 
 // Types is the list of all supported measurement types.
@@ -86,6 +87,7 @@ var Types = []Type{
 	TypeOS,
 	TypeSystemD,
 	TypeNodeTopology,
+	TypeOLM,
 }
 
 // ParseType parses a string into a measurement Type.

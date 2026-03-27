@@ -146,6 +146,7 @@ func (n *NodeSnapshotter) measure(ctx context.Context) error {
 	g.Go(collectSafe("os", n.Factory.CreateOSCollector()))
 	g.Go(collectSafe("gpu", n.Factory.CreateGPUCollector()))
 	g.Go(collectSafe("topology", n.Factory.CreateNodeTopologyCollector()))
+	g.Go(collectSafe("olm", n.Factory.CreateOLMCollector()))
 
 	_ = g.Wait() // Individual collector errors are logged and swallowed; group always returns nil.
 
