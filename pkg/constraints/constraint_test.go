@@ -106,6 +106,24 @@ func TestParsedConstraint_Evaluate(t *testing.T) {
 			want:       true,
 		},
 		{
+			name:       "version gte - pass OCP format with plus suffix",
+			constraint: ParsedConstraint{Operator: OperatorGTE, Value: "1.31"},
+			actual:     "v1.31.0+6e16884",
+			want:       true,
+		},
+		{
+			name:       "version gte - pass OCP format higher version",
+			constraint: ParsedConstraint{Operator: OperatorGTE, Value: "1.31"},
+			actual:     "v1.33.0+abc123",
+			want:       true,
+		},
+		{
+			name:       "version gte - fail OCP format lower version",
+			constraint: ParsedConstraint{Operator: OperatorGTE, Value: "1.31"},
+			actual:     "v1.30.9+def456",
+			want:       false,
+		},
+		{
 			name:       "version gte - fail lower",
 			constraint: ParsedConstraint{Operator: OperatorGTE, Value: "1.32.4"},
 			actual:     "1.30.0",
@@ -205,6 +223,19 @@ func TestParsedConstraint_Evaluate(t *testing.T) {
 			name:       "exact match - fail",
 			constraint: ParsedConstraint{Operator: OperatorExact, Value: "24.04"},
 			actual:     "22.04",
+			want:       false,
+		},
+
+		{
+			name:       "exact match - rhcos pass",
+			constraint: ParsedConstraint{Operator: OperatorExact, Value: "rhcos"},
+			actual:     "rhcos",
+			want:       true,
+		},
+		{
+			name:       "exact match - rhcos fail on ubuntu",
+			constraint: ParsedConstraint{Operator: OperatorExact, Value: "rhcos"},
+			actual:     "ubuntu",
 			want:       false,
 		},
 
