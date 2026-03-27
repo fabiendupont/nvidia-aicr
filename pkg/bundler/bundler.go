@@ -31,6 +31,7 @@ import (
 	"github.com/NVIDIA/aicr/pkg/bundler/config"
 	"github.com/NVIDIA/aicr/pkg/bundler/deployer/argocd"
 	"github.com/NVIDIA/aicr/pkg/bundler/deployer/helm"
+	"github.com/NVIDIA/aicr/pkg/bundler/deployer/olm"
 	"github.com/NVIDIA/aicr/pkg/bundler/result"
 	"github.com/NVIDIA/aicr/pkg/bundler/validations"
 	"github.com/NVIDIA/aicr/pkg/bundler/verifier"
@@ -256,8 +257,7 @@ func (b *DefaultBundler) Make(ctx context.Context, input recipe.RecipeInput, dir
 	case config.DeployerArgoCD:
 		return b.makeArgoCD(ctx, recipeResult, componentValues, dir, start)
 	case config.DeployerOLM:
-		return nil, errors.New(errors.ErrCodeInvalidRequest,
-			"OLM deployer is not yet implemented")
+		return b.makeOLMBundle(ctx, recipeResult, dir, start)
 	default:
 		return b.makeHelmBundle(ctx, recipeResult, componentValues, dir, start)
 	}
@@ -433,6 +433,133 @@ func (b *DefaultBundler) makeArgoCD(ctx context.Context, recipeResult *recipe.Re
 	)
 
 	return resultOutput, nil
+}
+
+// makeOLMBundle generates OLM Subscription and Custom Resource manifests.
+func (b *DefaultBundler) makeOLMBundle(ctx context.Context, recipeResult *recipe.RecipeResult, dir string, start time.Time) (*result.Output, error) {
+	slog.Debug("generating olm bundle",
+		"component_count", len(recipeResult.ComponentRefs),
+		"output_dir", dir,
+	)
+
+	// Build OLM component data from the component registry
+	olmData, err := b.buildOLMComponentData(recipeResult)
+	if err != nil {
+		return nil, errors.Wrap(errors.ErrCodeInternal,
+			"failed to build OLM component data", err)
+	}
+
+	// Generate OLM bundle
+	generator := olm.NewGenerator()
+	generatorInput := &olm.GeneratorInput{
+		RecipeResult:     recipeResult,
+		ComponentOLMData: olmData,
+		Version:          b.Config.Version(),
+		IncludeChecksums: b.Config.IncludeChecksums(),
+	}
+
+	output, genErr := generator.Generate(ctx, generatorInput, dir)
+	if genErr != nil {
+		return nil, errors.Wrap(errors.ErrCodeInternal,
+			"failed to generate olm bundle", genErr)
+	}
+
+	// Build result output
+	resultOutput := &result.Output{
+		Results:       make([]*result.Result, 0),
+		Errors:        make([]result.BundleError, 0),
+		TotalDuration: time.Since(start),
+		TotalSize:     output.TotalSize,
+		TotalFiles:    len(output.Files),
+		OutputDir:     dir,
+	}
+
+	olmResult := &result.Result{
+		Type:     "olm-bundle",
+		Success:  true,
+		Files:    output.Files,
+		Size:     output.TotalSize,
+		Duration: output.Duration,
+	}
+	resultOutput.Results = append(resultOutput.Results, olmResult)
+
+	notes := make([]string, 0)
+	if len(output.DeploymentNotes) > 0 {
+		notes = append(notes, output.DeploymentNotes...)
+	}
+	if len(b.warnings) > 0 {
+		notes = append(notes, b.warnings...)
+	}
+	resultOutput.Deployment = &result.DeploymentInfo{
+		Type:  "OLM (Operator Lifecycle Manager)",
+		Steps: output.DeploymentSteps,
+		Notes: notes,
+	}
+
+	slog.Debug("olm bundle generation complete",
+		"files", len(output.Files),
+		"size_bytes", output.TotalSize,
+		"duration", output.Duration,
+	)
+
+	return resultOutput, nil
+}
+
+// buildOLMComponentData constructs OLM metadata for each component from the registry.
+func (b *DefaultBundler) buildOLMComponentData(recipeResult *recipe.RecipeResult) (map[string]*olm.OLMComponentData, error) {
+	registry, err := recipe.GetComponentRegistry()
+	if err != nil {
+		return nil, errors.Wrap(errors.ErrCodeInternal, "failed to load component registry", err)
+	}
+
+	olmData := make(map[string]*olm.OLMComponentData, len(recipeResult.ComponentRefs))
+	for _, ref := range recipeResult.ComponentRefs {
+		comp := registry.Get(ref.Name)
+		if comp == nil || comp.OLM == nil {
+			return nil, errors.New(errors.ErrCodeInvalidRequest,
+				fmt.Sprintf("component %q has no OLM configuration in registry; cannot use OLM deployer", ref.Name))
+		}
+
+		if comp.OLM.Skip {
+			slog.Info("skipping component on OLM deployer",
+				"component", ref.Name,
+				"reason", comp.OLM.Note,
+			)
+			continue
+		}
+
+		namespace := comp.OLM.DefaultNamespace
+		if ref.Namespace != "" {
+			namespace = ref.Namespace
+		}
+
+		crs := make([]olm.CustomResourceData, 0, len(comp.OLM.CustomResources))
+		for _, cr := range comp.OLM.CustomResources {
+			crs = append(crs, olm.CustomResourceData{
+				APIVersion: cr.APIVersion,
+				Kind:       cr.Kind,
+				Name:       cr.Name,
+				Namespace:  cr.Namespace,
+				Filename:   fmt.Sprintf("%s.yaml", cr.Name),
+			})
+		}
+
+		olmData[ref.Name] = &olm.OLMComponentData{
+			Name:               ref.Name,
+			Package:            comp.OLM.Package,
+			Channel:            comp.OLM.Channel,
+			Source:             comp.OLM.Source,
+			SourceNamespace:    comp.OLM.SourceNamespace,
+			InstallNamespace:   namespace,
+			ApprovalPolicy:     comp.OLM.ApprovalPolicy,
+			StartingCSV:        comp.OLM.StartingCSV,
+			CustomResources:    crs,
+			HasCustomResources: len(crs) > 0,
+			HasOperatorGroup:   true,
+		}
+	}
+
+	return olmData, nil
 }
 
 // extractComponentValues extracts and processes values for each component in the recipe.
