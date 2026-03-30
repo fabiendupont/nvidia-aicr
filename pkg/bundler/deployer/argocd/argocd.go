@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/NVIDIA/aicr/pkg/bundler/checksum"
+	"github.com/NVIDIA/aicr/pkg/bundler/deployer/olm"
 	"github.com/NVIDIA/aicr/pkg/bundler/deployer/shared"
 	"github.com/NVIDIA/aicr/pkg/errors"
 	"github.com/NVIDIA/aicr/pkg/recipe"
@@ -47,6 +48,7 @@ type ApplicationData struct {
 	Version     string
 	SyncWave    int
 	IsKustomize bool   // True when the component uses Kustomize instead of Helm
+	IsOLM       bool   // True when the component uses OLM (manifests stored in Git)
 	Tag         string // Git ref for Kustomize components (tag, branch, or commit)
 	Path        string // Path within the repository to the kustomization
 }
@@ -82,6 +84,11 @@ type GeneratorInput struct {
 
 	// IncludeChecksums indicates whether to generate a checksums.txt file.
 	IncludeChecksums bool
+
+	// ComponentOLMData maps component names to OLM metadata for OLM-type components.
+	// When present, OLM components generate Subscription/CR manifests in Git
+	// instead of pointing to a Helm chart.
+	ComponentOLMData map[string]*olm.OLMComponentData
 }
 
 // GeneratorOutput contains the result of ArgoCD Application generation.
@@ -143,6 +150,7 @@ func (g *Generator) Generate(ctx context.Context, input *GeneratorInput, outputD
 		}
 
 		isKustomize := comp.Type == recipe.ComponentTypeKustomize
+		isOLM := comp.Type == recipe.ComponentTypeOLM
 
 		chartName := comp.Chart
 		if chartName == "" {
@@ -157,6 +165,7 @@ func (g *Generator) Generate(ctx context.Context, input *GeneratorInput, outputD
 			Version:     shared.NormalizeVersion(comp.Version),
 			SyncWave:    i, // Use index as sync wave
 			IsKustomize: isKustomize,
+			IsOLM:       isOLM,
 			Tag:         comp.Tag,
 			Path:        comp.Path,
 		}
@@ -189,8 +198,18 @@ func (g *Generator) Generate(ctx context.Context, input *GeneratorInput, outputD
 		output.Files = append(output.Files, appPath)
 		output.TotalSize += appSize
 
-		// Generate values.yaml only for Helm components (kustomize uses source directly)
-		if !appData.IsKustomize {
+		if appData.IsOLM {
+			// OLM components: generate Subscription/OperatorGroup/CR manifests in the component directory.
+			// ArgoCD will sync these as plain YAML from the Git repo.
+			olmFiles, olmSize, olmErr := g.generateOLMManifests(input, appData.Name, componentDir)
+			if olmErr != nil {
+				return nil, errors.Wrap(errors.ErrCodeInternal,
+					fmt.Sprintf("failed to generate OLM manifests for %s", appData.Name), olmErr)
+			}
+			output.Files = append(output.Files, olmFiles...)
+			output.TotalSize += olmSize
+		} else if !appData.IsKustomize {
+			// Helm components: generate values.yaml
 			values := input.ComponentValues[appData.Name]
 			if values == nil {
 				values = make(map[string]any)
@@ -270,4 +289,28 @@ func (g *Generator) Generate(ctx context.Context, input *GeneratorInput, outputD
 	)
 
 	return output, nil
+}
+
+// generateOLMManifests creates OLM Subscription, OperatorGroup, namespace, and CR
+// manifests in the component directory. These are plain YAML files that ArgoCD
+// syncs from the Git repo, enabling GitOps management of OLM operators.
+func (g *Generator) generateOLMManifests(input *GeneratorInput, componentName, componentDir string) ([]string, int64, error) {
+	if input.ComponentOLMData == nil {
+		return nil, 0, errors.New(errors.ErrCodeInvalidRequest,
+			fmt.Sprintf("component %q is type OLM but no OLM data was provided", componentName))
+	}
+
+	olmData, ok := input.ComponentOLMData[componentName]
+	if !ok {
+		return nil, 0, errors.New(errors.ErrCodeInvalidRequest,
+			fmt.Sprintf("component %q is type OLM but has no OLM metadata", componentName))
+	}
+
+	olmGenerator := olm.NewGenerator()
+	olmOutput, err := olmGenerator.GenerateComponent(olmData, componentDir)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return olmOutput.Files, olmOutput.TotalSize, nil
 }

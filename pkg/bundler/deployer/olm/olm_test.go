@@ -277,7 +277,8 @@ func TestGenerator_Generate_EmptyOLMData(t *testing.T) {
 	}
 }
 
-func TestGenerator_Generate_MissingOLMData(t *testing.T) {
+func TestGenerator_Generate_SkipsNonOLMComponents(t *testing.T) {
+	dir := t.TempDir()
 	generator := NewGenerator()
 
 	input := &GeneratorInput{
@@ -286,9 +287,9 @@ func TestGenerator_Generate_MissingOLMData(t *testing.T) {
 			APIVersion: "aicr.nvidia.com/v1alpha1",
 			ComponentRefs: []recipe.ComponentRef{
 				{Name: "gpu-operator"},
-				{Name: "unknown-component"},
+				{Name: "helm-only-component"},
 			},
-			DeploymentOrder: []string{"gpu-operator", "unknown-component"},
+			DeploymentOrder: []string{"gpu-operator", "helm-only-component"},
 		},
 		ComponentOLMData: map[string]*OLMComponentData{
 			"gpu-operator": {
@@ -299,17 +300,26 @@ func TestGenerator_Generate_MissingOLMData(t *testing.T) {
 				SourceNamespace:  "openshift-marketplace",
 				InstallNamespace: "nvidia-gpu-operator",
 				ApprovalPolicy:   "Manual",
+				HasOperatorGroup: true,
 			},
 		},
 		Version: "test",
 	}
 
-	_, err := generator.Generate(context.Background(), input, t.TempDir())
-	if err == nil {
-		t.Error("Generate with missing OLM data for a component should return error")
+	// Should succeed — helm-only-component is silently skipped
+	_, err := generator.Generate(context.Background(), input, dir)
+	if err != nil {
+		t.Fatalf("Generate() should skip non-OLM components, got error: %v", err)
 	}
-	if !strings.Contains(err.Error(), "unknown-component") {
-		t.Errorf("error should mention the missing component, got: %v", err)
+
+	// gpu-operator directory should exist
+	if _, statErr := os.Stat(filepath.Join(dir, "gpu-operator")); os.IsNotExist(statErr) {
+		t.Error("gpu-operator directory should be created")
+	}
+
+	// helm-only-component directory should NOT exist
+	if _, statErr := os.Stat(filepath.Join(dir, "helm-only-component")); !os.IsNotExist(statErr) {
+		t.Error("helm-only-component directory should not be created")
 	}
 }
 

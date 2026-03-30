@@ -362,6 +362,18 @@ func (b *DefaultBundler) makeArgoCD(ctx context.Context, recipeResult *recipe.Re
 		"output_dir", dir,
 	)
 
+	// Build OLM data for any OLM-type components in the recipe.
+	// ArgoCD generates OLM manifests in Git for these components.
+	var olmData map[string]*olm.OLMComponentData
+	if hasOLMComponents(recipeResult) {
+		var olmErr error
+		olmData, olmErr = b.buildOLMComponentData(recipeResult)
+		if olmErr != nil {
+			return nil, errors.Wrap(errors.ErrCodeInternal,
+				"failed to build OLM component data for ArgoCD", olmErr)
+		}
+	}
+
 	// Generate ArgoCD applications
 	generator := argocd.NewGenerator()
 	generatorInput := &argocd.GeneratorInput{
@@ -370,6 +382,7 @@ func (b *DefaultBundler) makeArgoCD(ctx context.Context, recipeResult *recipe.Re
 		Version:          b.Config.Version(),
 		RepoURL:          b.Config.RepoURL(),
 		IncludeChecksums: b.Config.IncludeChecksums(),
+		ComponentOLMData: olmData,
 	}
 
 	output, err := generator.Generate(ctx, generatorInput, dir)
@@ -505,7 +518,9 @@ func (b *DefaultBundler) makeOLMBundle(ctx context.Context, recipeResult *recipe
 	return resultOutput, nil
 }
 
-// buildOLMComponentData constructs OLM metadata for each component from the registry.
+// buildOLMComponentData constructs OLM metadata for OLM-type components from the registry.
+// When onlyOLMType is false (OLM deployer), all components must have OLM config.
+// When onlyOLMType is true (ArgoCD deployer), only type=OLM components are processed.
 func (b *DefaultBundler) buildOLMComponentData(recipeResult *recipe.RecipeResult) (map[string]*olm.OLMComponentData, error) {
 	registry, err := recipe.GetComponentRegistry()
 	if err != nil {
@@ -514,10 +529,15 @@ func (b *DefaultBundler) buildOLMComponentData(recipeResult *recipe.RecipeResult
 
 	olmData := make(map[string]*olm.OLMComponentData, len(recipeResult.ComponentRefs))
 	for _, ref := range recipeResult.ComponentRefs {
+		// Skip non-OLM components when called from mixed deployers (ArgoCD)
+		if ref.Type != recipe.ComponentTypeOLM {
+			continue
+		}
+
 		comp := registry.Get(ref.Name)
 		if comp == nil || comp.OLM == nil {
 			return nil, errors.New(errors.ErrCodeInvalidRequest,
-				fmt.Sprintf("component %q has no OLM configuration in registry; cannot use OLM deployer", ref.Name))
+				fmt.Sprintf("component %q has type OLM but no OLM configuration in registry", ref.Name))
 		}
 
 		if comp.OLM.Skip {
@@ -560,6 +580,16 @@ func (b *DefaultBundler) buildOLMComponentData(recipeResult *recipe.RecipeResult
 	}
 
 	return olmData, nil
+}
+
+// hasOLMComponents returns true if the recipe contains any OLM-type components.
+func hasOLMComponents(recipeResult *recipe.RecipeResult) bool {
+	for _, ref := range recipeResult.ComponentRefs {
+		if ref.Type == recipe.ComponentTypeOLM {
+			return true
+		}
+	}
+	return false
 }
 
 // extractComponentValues extracts and processes values for each component in the recipe.

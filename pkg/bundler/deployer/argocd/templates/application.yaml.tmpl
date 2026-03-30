@@ -7,7 +7,14 @@ metadata:
     argocd.argoproj.io/sync-wave: "{{ .SyncWave }}"
 spec:
   project: default
-{{- if .IsKustomize }}
+{{- if .IsOLM }}
+  source:
+    repoURL: '{{ `{{ .RepoURL }}` }}'
+    targetRevision: main
+    path: {{ .Name }}
+    directory:
+      recurse: true
+{{- else if .IsKustomize }}
   source:
     repoURL: {{ .Repository }}
     targetRevision: {{ .Tag }}

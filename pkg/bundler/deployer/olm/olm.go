@@ -305,14 +305,34 @@ func (g *Generator) buildSortedComponents(input *GeneratorInput) ([]OLMComponent
 
 		olmData, ok := input.ComponentOLMData[ref.Name]
 		if !ok {
-			return nil, errors.New(errors.ErrCodeInvalidRequest,
-				fmt.Sprintf("component %q has no OLM metadata; all components must have olm configuration when using the OLM deployer", ref.Name))
+			slog.Debug("skipping non-OLM component in OLM deployer",
+				slog.String("component", ref.Name))
+			continue
 		}
 
 		components = append(components, *olmData)
 	}
 
 	return components, nil
+}
+
+// ComponentOutput contains the result of generating OLM manifests for a single component.
+type ComponentOutput struct {
+	// Files contains the paths of generated files.
+	Files []string
+
+	// TotalSize is the total size of all generated files.
+	TotalSize int64
+}
+
+// GenerateComponent creates OLM manifests for a single component in the given directory.
+// This is used by the ArgoCD deployer to embed OLM manifests in Git-synced directories.
+func (g *Generator) GenerateComponent(comp *OLMComponentData, outputDir string) (*ComponentOutput, error) {
+	files, size, err := g.generateComponentFiles(*comp, outputDir)
+	if err != nil {
+		return nil, err
+	}
+	return &ComponentOutput{Files: files, TotalSize: size}, nil
 }
 
 // generateComponentFiles creates the per-component directory with OLM manifests.
